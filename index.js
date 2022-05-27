@@ -152,6 +152,13 @@ async function run() {
             const result = await userCollection.updateOne(filter, updateDoc, options)
             res.send(result)
         })
+
+        app.get('/user', verifyJWT, async (req, res) => {
+            const email = req.query.email
+            const query = { email: email }
+            const result = await userCollection.findOne(query)
+            res.send(result)
+        })
     }
     finally {
         
