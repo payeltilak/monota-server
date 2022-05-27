@@ -35,6 +35,7 @@ async function run() {
         const productCollection = client.db('monota').collection('products');
         const orderCollection = client.db('monota').collection('orders');
         const userCollection = client.db('monota').collection('users');
+        const reviewCollection = client.db('monota').collection('reviews');
         
         app.get('/product', async (req, res) => {
             const query = {};
@@ -123,6 +124,33 @@ async function run() {
             else {
                 res.status(403).send({ message: 'forbidden access' })
             }
+        })
+
+        // add review
+        app.post('/addreview',verifyJWT, async (req, res) => {
+            const review = req.body
+                const result = await reviewCollection.insertOne(review)
+                res.send(result)
+        })
+
+        // update user
+        app.put('/updateduser', verifyJWT, async (req, res) => {
+            const email = req.query.email
+            const updatedUser = req.body
+            const filter = { email: email }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    name: updatedUser.name,
+                    img: updatedUser.img,
+                    phone: updatedUser.phone,
+                    education: updatedUser.education,
+                    address: updatedUser.address,
+                    linkedin: updatedUser.linkedin
+                },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options)
+            res.send(result)
         })
     }
     finally {
