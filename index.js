@@ -220,6 +220,15 @@ async function run() {
             const result = await productCollection.insertOne(tool)
             res.send(result)
         })
+
+        // delete tool
+        app.delete('/deletetool/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const result = await productCollection.deleteOne(query)
+            res.send(result)
+
+        })
     }
     finally {
         
