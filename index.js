@@ -214,6 +214,12 @@ async function run() {
             const result = await orderCollection.find().toArray()
             res.send(result)
         })
+
+        app.post('/addproduct', verifyJWT, verifyAdmin, async (req, res) => {
+            const tool = req.body
+            const result = await productCollection.insertOne(tool)
+            res.send(result)
+        })
     }
     finally {
         
