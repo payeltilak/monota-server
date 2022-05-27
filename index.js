@@ -8,7 +8,7 @@ const port = process.env.PORT || 5000;
 
 
 //middle
-app.use(cors());
+app.use(cors({ origin:"http://localhost:3000"}));
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.fpnak.mongodb.net/?retryWrites=true&w=majority`;
 // console.log(uri);
@@ -37,6 +37,17 @@ async function run() {
         const userCollection = client.db('monota').collection('users');
         const reviewCollection = client.db('monota').collection('reviews');
         
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email
+            const requesterAccount = await userCollection.findOne({ email: requester })
+            if (requesterAccount.role === 'admin') {
+                next()
+            }
+            else {
+                res.status(403).send({ message: "forbidden" })
+            }
+        }
+
         app.get('/product', async (req, res) => {
             const query = {};
             const cursor = productCollection.find(query);
@@ -52,7 +63,7 @@ async function run() {
 
 
         // put user to db
-        app.put('/user/:email', async (req, res) => {
+        app.put('/user/:email',verifyJWT,verifyAdmin, async (req, res) => {
             const email = req.params.email
             const user = req.body
             console.log('Hit');
@@ -157,6 +168,50 @@ async function run() {
             const email = req.query.email
             const query = { email: email }
             const result = await userCollection.findOne(query)
+            res.send(result)
+        })
+
+        // Load all user
+        app.get('/alluser', verifyJWT, async (req, res) => {
+            const query = {}
+            const users = await userCollection.find(query).toArray()
+            res.send(users)
+        })
+
+        // make admin
+        app.put('/user/admin/:email', verifyJWT,  async (req, res) => {
+            const email = req.params.email
+            const filter = { email: email }
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc)
+            res.send(result)
+
+        })
+
+        app.get('/admin/:email', async (req, res) => {
+            const email = req.params.email
+            const user = await userCollection.findOne({ email: email })
+            const isAdmin = user.role === 'admin'
+            res.send({ admin: isAdmin })
+        })
+
+        // Handle shift status by admin
+        app.patch('/shifted/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    shifted: true
+                }
+            }
+            const result = await orderCollection.updateOne(filter, updateDoc)
+            res.send(result)
+        })
+
+        app.get('/allorders', verifyJWT, verifyAdmin, async (req, res) => {
+            const result = await orderCollection.find().toArray()
             res.send(result)
         })
     }
