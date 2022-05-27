@@ -98,6 +98,7 @@ async function run() {
         // put order in orders collection
         app.put('/order',verifyJWT, async (req, res) => {
             const order = req.body
+            console.log('purchase hit');
             const filter = {
                 email: order.email,
                 toolId: order.toolId
@@ -106,23 +107,29 @@ async function run() {
             const exist = await orderCollection.findOne(filter)
             const options = { upsert: true };
             if (exist) {
-                const updatedDoc = {
-                    $set: {
-                        address: order.address,
-                        phone: order.phone,
-                        quantity: exist.quantity + order.quantity,
-                        price: exist.price + order.price
-                    }
+                if (exist.shifted) {
+                    const newOrder=await orderCollection.insertOne(order)
+                    return res.send(newOrder)
                 }
-                const tool = await productCollection.findOne(query)
-                const updateTool = {
-                    $set: {
-                        quantity: tool.quantity - order.quantity
+                else {
+                    const updatedDoc = {
+                        $set: {
+                            address: order.address,
+                            phone: order.phone,
+                            quantity: exist.quantity + order.quantity,
+                            price: exist.price + order.price
+                        }
                     }
-                }
-                const updatedTool = await productCollection.updateOne(query, updateTool, options)
-                const updatedOrder = await orderCollection.updateOne(filter, updatedDoc, options)
-                return res.send({ updatedOrder, updatedTool })
+                    const tool = await productCollection.findOne(query)
+                    const updateTool = {
+                        $set: {
+                            quantity: tool.quantity - order.quantity
+                        }
+                    }
+                    const updatedTool = await productCollection.updateOne(query, updateTool, options)
+                    const updatedOrder = await orderCollection.updateOne(filter, updatedDoc, options)
+                    return res.send({ updatedOrder, updatedTool })
+               }
             }
 
             else {
