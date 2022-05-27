@@ -14,6 +14,21 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clu
 // console.log(uri);
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization
+    if (!authHeader) {
+        res.status(401).send({ message: "Unauthorized access" })
+    }
+    const token = authHeader.split(' ')[1]
+    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+        if (err) {
+            res.status(403).send({ message: 'forbidden access' })
+        }
+        req.decoded = decoded
+        next()
+    });
+}
+
 async function run() {
     try {
         await client.connect();
@@ -53,7 +68,7 @@ async function run() {
 
 
         // put order in orders collection
-        app.put('/order', async (req, res) => {
+        app.put('/order',verifyJWT, async (req, res) => {
             const order = req.body
             const filter = {
                 email: order.email,
@@ -92,6 +107,21 @@ async function run() {
                 const updatedTool = await productCollection.updateOne(query, updateTool, options)
                 const result = await orderCollection.insertOne(order)
                 return res.send({ result, updatedTool })
+            }
+        })
+
+        // user ordered api
+        app.get('/myorder', verifyJWT, async (req, res) => {
+            const email = req.query.email
+            const authorization = req.headers.authorization
+            const decodedEmail = req.decoded.email
+            if (email === decodedEmail) {
+                const query = { email: email }
+                const orders = await orderCollection.find(query).toArray()
+                return res.send(orders)
+            }
+            else {
+                res.status(403).send({ message: 'forbidden access' })
             }
         })
     }
