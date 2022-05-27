@@ -5,6 +5,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 
 //middle
@@ -36,6 +37,7 @@ async function run() {
         const orderCollection = client.db('monota').collection('orders');
         const userCollection = client.db('monota').collection('users');
         const reviewCollection = client.db('monota').collection('reviews');
+        const paymentCollection = client.db('monota').collection('payments');
         
         const verifyAdmin = async (req, res, next) => {
             const requester = req.decoded.email
@@ -47,6 +49,20 @@ async function run() {
                 res.status(403).send({ message: "forbidden" })
             }
         }
+
+        // Payment api
+        app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+            const tool = req.body;
+            const price = tool.price;
+            const amount = price * 100;
+            console.log('api hit');
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
+        })
 
         app.get('/product', async (req, res) => {
             const query = {};
@@ -63,7 +79,7 @@ async function run() {
 
 
         // put user to db
-        app.put('/user/:email',verifyJWT,verifyAdmin, async (req, res) => {
+        app.put('/user/:email', async (req, res) => {
             const email = req.params.email
             const user = req.body
             console.log('Hit');
@@ -228,6 +244,44 @@ async function run() {
             const result = await productCollection.deleteOne(query)
             res.send(result)
 
+        })
+
+        app.get('/order/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            console.log('order id hit');
+            const result = await orderCollection.findOne(query)
+            res.send(result)
+        })
+
+        // Patch for update payment status
+        app.patch('/order/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id
+            const payment = req.body
+            console.log('update payment hit');
+            const filter = { _id: ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId,
+                }
+            }
+            const result = await paymentCollection.insertOne(payment)
+            const updatedBooking = await orderCollection.updateOne(filter, updatedDoc)
+            res.send(updatedDoc)
+        })
+
+        // Handle shift status by admin
+        app.patch('/productshifted/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    shifted: true
+                }
+            }
+            const result = await orderCollection.updateOne(filter, updateDoc)
+            res.send(result)
         })
     }
     finally {
