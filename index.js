@@ -9,7 +9,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 
 //middle
-app.use(cors({ origin:"http://localhost:3000"}));
+app.use(cors({ origin:"https://monota-cd720.web.app"}));
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.fpnak.mongodb.net/?retryWrites=true&w=majority`;
 // console.log(uri);
@@ -165,6 +165,11 @@ async function run() {
             const review = req.body
                 const result = await reviewCollection.insertOne(review)
                 res.send(result)
+        })
+
+        app.get('/reviews', async (req, res) => {
+            const reviews = await reviewCollection.find().toArray()
+            res.send(reviews);                              
         })
 
         // update user
